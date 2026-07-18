@@ -1,0 +1,1 @@
+export default function Home(){return <main><section className="hero"><div className="container"><h1>Your artwork, your approval.</h1><p className="muted">Review, revise and approve your Pawtra design.</p><a className="btn primary" href="/track">Track My Order</a></div></section></main>}
