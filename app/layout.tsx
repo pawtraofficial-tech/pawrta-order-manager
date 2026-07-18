@@ -1,3 +1,4 @@
 import "./globals.css";
-export const metadata = { title: "Pawtra Order Manager", robots: { index: false, follow: false } };
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body><header className="header"><div className="container"><strong>PAWTRA ORDER MANAGER</strong></div></header>{children}</body></html>}
+import type { Metadata } from "next";
+export const metadata: Metadata = { title: "Pawtra Artwork Portal", description: "Review, revise and approve your custom Pawtra artwork." };
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) { return <html lang="en"><body><header className="header"><div className="container"><a className="brand" href="https://pawtra.net">PAWTRA</a><a href="/track">Track My Order</a></div></header>{children}</body></html>; }
