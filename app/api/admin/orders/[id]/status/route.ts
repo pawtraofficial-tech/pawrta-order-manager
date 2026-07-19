@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdminRequest } from "@/lib/admin-auth";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { audit } from "@/lib/audit";
 import { syncOrderState } from "@/lib/shopify";
 import { appUrl, sendEmail } from "@/lib/email";
@@ -16,7 +16,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const input = inputSchema.safeParse(await req.json().catch(() => null));
   if (!input.success) return NextResponse.json({ error: "Invalid action." }, { status: 400 });
-  const { data: order } = await supabaseAdmin.from("orders").select("*").eq("id", id).single();
+  const { data: order } = await getSupabaseAdmin().from("orders").select("*").eq("id", id).single();
   if (!order) return NextResponse.json({ error: "Order not found." }, { status: 404 });
 
   let status = order.status;
@@ -24,14 +24,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (input.data.action === "mark_in_progress") status = "artwork_in_progress";
   if (input.data.action === "complete_revision") {
     if (!input.data.revisionId) return NextResponse.json({ error: "Revision ID required." }, { status: 400 });
-    await supabaseAdmin.from("revision_requests").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", input.data.revisionId).eq("order_id", id);
+    await getSupabaseAdmin().from("revision_requests").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", input.data.revisionId).eq("order_id", id);
     status = "artwork_in_progress";
   }
   if (input.data.action === "mark_production") { status = "in_production"; productionReady = true; }
   if (input.data.action === "mark_shipped") status = "shipped";
 
   const now = new Date().toISOString();
-  const { error } = await supabaseAdmin.from("orders").update({ status, production_ready: productionReady, updated_at: now }).eq("id", id);
+  const { error } = await getSupabaseAdmin().from("orders").update({ status, production_ready: productionReady, updated_at: now }).eq("id", id);
   if (error) return NextResponse.json({ error: "Status could not be updated." }, { status: 500 });
   await audit(id, `admin_${input.data.action}`, { status });
   await syncOrderState(order.shopify_order_id, { status, revisionCount: order.revision_count, approved: Boolean(order.approved_at), productionReady }).catch(console.error);

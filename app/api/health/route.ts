@@ -1,0 +1,30 @@
+import { NextResponse } from "next/server";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const required = {
+    NEXT_PUBLIC_SUPABASE_URL: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+    SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    PAWTRA_ADMIN_KEY: Boolean(process.env.PAWTRA_ADMIN_KEY),
+    SHOPIFY_WEBHOOK_SECRET: Boolean(process.env.SHOPIFY_WEBHOOK_SECRET),
+  };
+
+  const missing = Object.entries(required)
+    .filter(([, present]) => !present)
+    .map(([name]) => name);
+
+  if (missing.length) {
+    return NextResponse.json({ ok: false, database: false, missing }, { status: 503 });
+  }
+
+  try {
+    const { error } = await getSupabaseAdmin().from("orders").select("id", { head: true, count: "exact" }).limit(1);
+    if (error) throw error;
+    return NextResponse.json({ ok: true, database: true, missing: [] });
+  } catch (error) {
+    console.error("Health check failed", error);
+    return NextResponse.json({ ok: false, database: false, missing: [] }, { status: 503 });
+  }
+}

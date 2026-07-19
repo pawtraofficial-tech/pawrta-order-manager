@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { isAdminRequest } from "@/lib/admin-auth";
 
 export async function GET(req: NextRequest) {
   if (!isAdminRequest(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
-  let query = supabaseAdmin
+  let query = getSupabaseAdmin()
     .from("orders")
     .select("id,order_number,customer_name,customer_email,status,revision_count,production_ready,updated_at,created_at")
     .order("updated_at", { ascending: false });
