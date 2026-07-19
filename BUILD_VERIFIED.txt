@@ -1,0 +1,24 @@
+Pawtra Order Manager - Build Verification
+Date: 2026-07-19
+
+Result: SUCCESS
+Command: npm ci && npm run build
+Next.js: 15.5.20
+
+Verified routes:
+- /
+- /admin
+- /track
+- /api/health
+- /api/admin/login
+- /api/admin/logout
+- /api/admin/orders
+- /api/admin/orders/[id]
+- /api/admin/orders/[id]/status
+- /api/admin/upload-preview
+- /api/customer/lookup
+- /api/customer/approve
+- /api/customer/revision
+- /api/webhooks/shopify/orders-create
+
+Note: Runtime tests requiring real Supabase, Shopify and email environment variables still need production credentials.
