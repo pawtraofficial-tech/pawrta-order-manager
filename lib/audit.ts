@@ -6,5 +6,5 @@ export async function audit(orderId: string, eventType: string, eventData: Recor
     event_type: eventType,
     event_data: eventData,
   });
-  if (error) console.error("Audit insert failed", error.message);
+  if (error) throw new Error(`Audit insert failed: ${error.message}`);
 }

@@ -24,6 +24,8 @@ export default function Track() {
   const [busy, setBusy] = useState(false);
 
   const preview = useMemo(() => order?.previews.find((item) => item.id === selected) || order?.previews.at(-1), [order, selected]);
+  const latestPreviewId = order?.previews.at(-1)?.id;
+  const latestSelected = Boolean(selected && selected === latestPreviewId);
 
   async function lookup(e?: FormEvent) {
     e?.preventDefault(); setBusy(true); setMessage("");
@@ -71,10 +73,11 @@ export default function Track() {
       <aside className="card action-card grid">
         <div><span className="eyebrow">SELECTED VERSION</span><h2>{preview?.label || "Not ready"}</h2></div>
         {order.approved_at ? <div className="approved-box"><strong>Approved</strong><p>This design is locked and ready for production.</p></div> : <>
-          <button className="btn gold" disabled={!order.canApprove || busy} onClick={approve}>Approve selected design</button>
+          <button className="btn gold" disabled={!order.canApprove || busy || !latestSelected} onClick={approve}>Approve latest design</button>
           <div className="divider"><span>or request changes</span></div>
-          <textarea rows={6} placeholder="Describe exactly what you would like changed…" value={note} onChange={(e) => setNote(e.target.value)} disabled={!order.canRequestRevision || busy} />
-          <button className="btn primary" disabled={!order.canRequestRevision || busy || note.trim().length < 5} onClick={revision}>Request revision</button>
+          <textarea rows={6} maxLength={2000} placeholder="Describe exactly what you would like changed…" value={note} onChange={(e) => setNote(e.target.value)} disabled={!order.canRequestRevision || busy || !latestSelected} />
+          <button className="btn primary" disabled={!order.canRequestRevision || busy || !latestSelected || note.trim().length < 5} onClick={revision}>Request revision</button>
+          {!latestSelected && <p className="muted small">Select the latest preview to approve it or request changes.</p>}
           {!order.canRequestRevision && order.status === "revision_requested" && <p className="muted small">Your current revision request is being worked on.</p>}
         </>}
         {order.revisions.length > 0 && <details><summary>Revision history</summary>{order.revisions.map((item) => <div className="history" key={item.id}><strong>{item.status === "open" ? "Open request" : "Completed"}</strong><p>{item.message}</p></div>)}</details>}

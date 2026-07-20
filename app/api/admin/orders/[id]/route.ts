@@ -7,14 +7,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const { data: order, error } = await getSupabaseAdmin().from("orders").select("*").eq("id", id).single();
   if (error || !order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-  const [{ data: previewRows }, { data: revisions }, { data: events }] = await Promise.all([
+  const [previewResult, revisionResult, eventResult] = await Promise.all([
     getSupabaseAdmin().from("previews").select("id,version_number,storage_path,label,created_at").eq("order_id", id).order("version_number"),
     getSupabaseAdmin().from("revision_requests").select("id,preview_id,message,status,created_at,completed_at").eq("order_id", id).order("created_at", { ascending: false }),
     getSupabaseAdmin().from("audit_events").select("id,event_type,event_data,created_at").eq("order_id", id).order("created_at", { ascending: false }).limit(30),
   ]);
-  const previews = await Promise.all((previewRows || []).map(async (row) => {
-    const { data } = await getSupabaseAdmin().storage.from("previews").createSignedUrl(row.storage_path, 3600);
-    return { ...row, imageUrl: data?.signedUrl || null };
+  if (previewResult.error || revisionResult.error || eventResult.error) {
+    console.error("Admin order detail query failed", previewResult.error?.message || revisionResult.error?.message || eventResult.error?.message);
+    return NextResponse.json({ error: "Order details could not be loaded." }, { status: 500 });
+  }
+  const previews = await Promise.all((previewResult.data || []).map(async (row) => {
+    const { data, error: signedError } = await getSupabaseAdmin().storage.from("previews").createSignedUrl(row.storage_path, 3600);
+    if (signedError) {
+      console.error("Admin preview signing failed", signedError.message);
+      return null;
+    }
+    return { ...row, imageUrl: data.signedUrl };
   }));
-  return NextResponse.json({ order: { ...order, previews, revisionRequests: revisions || [], auditEvents: events || [] } });
+  if (previews.some((preview) => preview === null)) return NextResponse.json({ error: "Artwork previews could not be loaded." }, { status: 500 });
+  return NextResponse.json({ order: { ...order, previews, revisionRequests: revisionResult.data || [], auditEvents: eventResult.data || [] } });
 }
