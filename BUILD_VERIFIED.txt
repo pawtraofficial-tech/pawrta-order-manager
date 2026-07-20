@@ -1,11 +1,28 @@
-Pawtra Order Manager - Build Verification
-Date: 2026-07-19
+Pawtra Order Manager - Verification
+Date: 2026-07-20
 
-Result: SUCCESS
-Command: npm ci && npm run build
-Next.js: 15.5.20
+Local results:
+- npm ci: PASS
+- npm run typecheck: PASS
+- npm run lint: PASS
+- npm test: PASS (5 tests)
+- npm run build: PASS
+- Next.js: 15.5.20
 
-Verified routes:
+Supabase results:
+- Migration harden_order_workflow: APPLIED
+- Transactional workflow test: PASS (executed inside BEGIN/ROLLBACK)
+- Security advisor: INFO only (RLS intentionally enabled with no public policies)
+- Test rows/files created: NONE
+
+Shopify:
+- metafieldsSet GraphQL mutation validation: PASS
+
+Dependency audit:
+- 2 moderate PostCSS advisories remain through the installed Next.js dependency.
+- npm only offers a breaking forced resolution; no force-fix was applied.
+
+Runtime routes verified by the production build:
 - /
 - /admin
 - /track
@@ -20,5 +37,3 @@ Verified routes:
 - /api/customer/approve
 - /api/customer/revision
 - /api/webhooks/shopify/orders-create
-
-Note: Runtime tests requiring real Supabase, Shopify and email environment variables still need production credentials.

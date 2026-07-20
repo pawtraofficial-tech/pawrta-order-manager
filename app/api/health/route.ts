@@ -16,15 +16,16 @@ export async function GET() {
     .map(([name]) => name);
 
   if (missing.length) {
-    return NextResponse.json({ ok: false, database: false, missing }, { status: 503 });
+    console.error("Health check configuration incomplete", missing.join(","));
+    return NextResponse.json({ ok: false, database: false }, { status: 503 });
   }
 
   try {
     const { error } = await getSupabaseAdmin().from("orders").select("id", { head: true, count: "exact" }).limit(1);
     if (error) throw error;
-    return NextResponse.json({ ok: true, database: true, missing: [] });
+    return NextResponse.json({ ok: true, database: true });
   } catch (error) {
     console.error("Health check failed", error);
-    return NextResponse.json({ ok: false, database: false, missing: [] }, { status: 503 });
+    return NextResponse.json({ ok: false, database: false }, { status: 503 });
   }
 }

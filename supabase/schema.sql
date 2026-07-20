@@ -55,4 +55,12 @@ alter table public.revision_requests enable row level security;
 alter table public.audit_events enable row level security;
 
 -- No public policies are intentionally created. The app accesses these tables only with the server-side service-role key.
-insert into storage.buckets (id, name, public) values ('previews', 'previews', false) on conflict (id) do update set public = false;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('previews', 'previews', false, 12582912, array['image/jpeg','image/png','image/webp']::text[])
+on conflict (id) do update set
+  public = false,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+-- Apply the versioned files in supabase/migrations after this baseline schema.
+-- They add transaction-safe server workflow functions and service-role-only grants.
