@@ -9,7 +9,6 @@ export async function GET() {
     SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     PAWTRA_ADMIN_KEY: Boolean(process.env.PAWTRA_ADMIN_KEY),
     SHOPIFY_WEBHOOK_SECRET: Boolean(process.env.SHOPIFY_WEBHOOK_SECRET),
-    SHOPIFY_STORE_DOMAIN: Boolean(process.env.SHOPIFY_STORE_DOMAIN),
   };
 
   const missing = Object.entries(required)
