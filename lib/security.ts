@@ -1,6 +1,6 @@
 import crypto from "crypto";
 export function verifyShopifyWebhook(rawBody: string, hmacHeader: string | null) {
-  const secret = process.env.SHOPIFY_WEBHOOK_SECRET;
+  const secret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_CLIENT_SECRET;
   if (!secret || !hmacHeader) return false;
   const digest = crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("base64");
   const a = Buffer.from(digest); const b = Buffer.from(hmacHeader);

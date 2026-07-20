@@ -29,12 +29,14 @@ Required for local development, Vercel Preview, and Vercel Production:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `PAWTRA_ADMIN_KEY`
 - `SHOPIFY_WEBHOOK_SECRET`
+- `SHOPIFY_STORE_DOMAIN`
+- `SHOPIFY_CLIENT_ID`
+- `SHOPIFY_CLIENT_SECRET`
 - `NEXT_PUBLIC_APP_URL` — the URL for the current environment
 
-Required when Shopify metafield synchronization is enabled:
+Optional legacy compatibility:
 
-- `SHOPIFY_STORE_DOMAIN`
-- `SHOPIFY_ADMIN_ACCESS_TOKEN`
+- `SHOPIFY_ADMIN_ACCESS_TOKEN` (optional legacy fallback)
 
 Optional email notifications:
 
@@ -79,6 +81,8 @@ Metafield synchronization uses the Admin GraphQL `metafieldsSet` mutation and th
 - `production_ready`
 
 The app needs the Shopify order scopes required to receive order webhooks and write order metafields (normally `read_orders` and `write_orders`). Confirm the exact scopes in the custom app configuration and reauthorize the app if scopes change.
+
+Apps created in Shopify's Dev Dashboard use the client-credentials grant. The server exchanges `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET` for a 24-hour Admin API token and refreshes it before expiry. `SHOPIFY_ADMIN_ACCESS_TOKEN` remains supported only as a legacy fallback.
 
 Do not modify the live theme. To add customer navigation, duplicate the current theme, keep the duplicate unpublished, add a “Track My Order” link to `/track`, preview it, and publish only after explicit approval.
 
