@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./brand.css";
 import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Track Your Custom Artwork | Pawtra",

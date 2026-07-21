@@ -28,6 +28,7 @@ Required for local development, Vercel Preview, and Vercel Production:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `PAWTRA_ADMIN_KEY`
+- `CRON_SECRET` — unique server-only bearer secret used by Vercel Cron
 - `SHOPIFY_WEBHOOK_SECRET`
 - `SHOPIFY_STORE_DOMAIN`
 - `SHOPIFY_CLIENT_ID`
@@ -60,6 +61,14 @@ Apply migration files in `supabase/migrations` in version order. Do not reset th
 - private bucket MIME and 12 MB size limits
 - service-role-only execution grants for workflow functions
 
+The additive `add_review_deadlines` migration stores a historical 72-hour window on each preview, records `manual` versus `automatic_72h` approval, and adds a durable idempotent notification queue. Existing previews are deliberately left without an active deadline; a new preview upload or a confirmed admin restart begins a window. This prevents deployment from unexpectedly approving an existing customer order.
+
+## Review deadline processor
+
+`GET /api/cron/review-deadlines` requires `Authorization: Bearer CRON_SECRET`. The database processor locks orders and previews, approves only an expired latest preview with no open revision, and records each outcome once. The current Vercel Hobby plan supports daily cron, configured in `vercel.json`. Customer lookup and admin detail also invoke the same database processor lazily, so correctness does not depend on the browser or the daily schedule.
+
+Email deliveries are durable per preview/review cycle. Resend receives a stable idempotency key; failed deliveries remain visible in admin and are retried by later processor runs. Database approval is never rolled back because an email or Shopify request failed.
+
 The application status value for production is `in_production`; `production` is invalid.
 
 ## Shopify
@@ -84,6 +93,8 @@ The app needs the Shopify order scopes required to receive order webhooks and wr
 
 Apps created in Shopify's Dev Dashboard use the client-credentials grant. The server exchanges `SHOPIFY_CLIENT_ID` and `SHOPIFY_CLIENT_SECRET` for a 24-hour Admin API token and refreshes it before expiry. `SHOPIFY_ADMIN_ACCESS_TOKEN` remains supported only as a legacy fallback.
 
+The integration targets Admin GraphQL API `2026-07`. Its existing minimum scopes remain `read_orders` for order/webhook access and `write_orders` for order metafields; no broader scope is needed for the review workflow.
+
 Do not modify the live theme. To add customer navigation, duplicate the current theme, keep the duplicate unpublished, add a “Track My Order” link to `/track`, preview it, and publish only after explicit approval.
 
 ## Workflow guarantees
@@ -93,8 +104,8 @@ Do not modify the live theme. To add customer navigation, duplicate the current 
 - Approval is idempotent, requires the latest preview, and is blocked by an open revision.
 - Only `approved → in_production → shipped` admin transitions are permitted.
 - Shopify webhook retries do not duplicate orders or creation audit events.
-- Customer lookup and mutation routes use exact normalized identifiers and per-instance rate limiting.
+- Customer lookup, customer mutation, and admin login routes use exact normalized identifiers and an atomic shared Supabase rate limiter. Only a one-way hash of the client address is stored. An in-memory bucket is retained as a temporary fail-safe.
 
 ## Operational notes
 
-The in-memory rate limiter is a best-effort abuse control per server instance. For high-volume or coordinated attacks, add a shared Vercel Firewall or durable rate-limit store. Email and Shopify synchronization are external side effects after the authoritative database transaction; failures are logged and returned as warnings without lying about the committed order state.
+Email and Shopify synchronization are external side effects after the authoritative database transaction; failures are logged and returned as warnings without lying about the committed order state. The shared admin secret remains appropriate for this small release; multi-user identity, roles, and per-user audit attribution are a future improvement.

@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { formatCountdown } from "@/lib/workflow";
 import { OrderTimeline } from "./status-timeline";
 
 type Preview = {
@@ -9,6 +10,10 @@ type Preview = {
   label: string;
   imageUrl: string | null;
   createdAt: string;
+  reviewStartedAt?: string | null;
+  reviewDeadlineAt?: string | null;
+  reviewClosedAt?: string | null;
+  reviewExpiredAt?: string | null;
 };
 
 type Revision = {
@@ -25,12 +30,38 @@ type Order = {
   revision_count: number;
   approved_preview_id?: string | null;
   approved_at?: string | null;
+  approval_source?: "manual" | "automatic_72h" | null;
   remainingFreeRevisions: number;
   previews: Preview[];
   revisions: Revision[];
   canApprove: boolean;
   canRequestRevision: boolean;
 };
+
+function ReviewCountdown({ deadline, serverNow, onExpired }: { deadline: string; serverNow: string; onExpired: () => void }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, new Date(deadline).getTime() - new Date(serverNow).getTime()));
+  const expired = useRef(false);
+  useEffect(() => {
+    const initial = Math.max(0, new Date(deadline).getTime() - new Date(serverNow).getTime());
+    const started = performance.now();
+    const tick = () => {
+      const next = Math.max(0, initial - (performance.now() - started));
+      setRemaining(next);
+      if (next === 0 && !expired.current) { expired.current = true; onExpired(); }
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [deadline, serverNow, onExpired]);
+  const urgency = remaining <= 6 * 60 * 60_000 ? "critical" : remaining <= 24 * 60 * 60_000 ? "urgent" : "active";
+  return <section className={`track-countdown ${urgency}`} aria-label="Artwork review deadline">
+    <p className="track-overline">Review window</p>
+    <strong aria-hidden="true">{remaining ? formatCountdown(remaining) : "Deadline reached"}</strong>
+    <p>Please approve your artwork or request a revision before the timer ends. If no action is taken, the latest artwork will be automatically approved. Production begins only after Pawtra completes the production step.</p>
+    <time dateTime={deadline}>Deadline: {new Intl.DateTimeFormat("en", { dateStyle: "full", timeStyle: "long" }).format(new Date(deadline))}</time>
+    <span className="sr-only" aria-live="polite">{remaining ? `Review window ${urgency}.` : "Review deadline reached. Refreshing order status."}</span>
+  </section>;
+}
 
 const labels: Record<string, string> = {
   artwork_in_progress: "Artwork in progress",
@@ -58,6 +89,9 @@ export default function Track() {
   const [message, setMessage] = useState("");
   const [messageKind, setMessageKind] = useState<"success" | "error">("error");
   const [busy, setBusy] = useState(false);
+  const [serverNow, setServerNow] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const artworkStage = useRef<HTMLDivElement>(null);
 
   const preview = useMemo(
     () => order?.previews.find((item) => item.id === selected) || order?.previews.at(-1),
@@ -66,10 +100,10 @@ export default function Track() {
   const latestPreviewId = order?.previews.at(-1)?.id;
   const latestSelected = Boolean(selected && selected === latestPreviewId);
 
-  async function lookup(e?: FormEvent) {
+  async function lookup(e?: FormEvent, preserveMessage = false) {
     e?.preventDefault();
     setBusy(true);
-    setMessage("");
+    if (!preserveMessage) setMessage("");
 
     try {
       const response = await fetch("/api/customer/lookup", {
@@ -86,6 +120,7 @@ export default function Track() {
       }
 
       setOrder(body.order);
+      setServerNow(body.serverNow);
       setSelected(body.order.approved_preview_id || body.order.previews.at(-1)?.id || null);
     } catch {
       setMessageKind("error");
@@ -109,7 +144,7 @@ export default function Track() {
       const body = await response.json();
       setMessageKind(response.ok ? "success" : "error");
       setMessage(response.ok ? "Your artwork is approved — we’ll take it from here." : body.error);
-      if (response.ok) await lookup();
+      if (response.ok) await lookup(undefined, true);
     } catch {
       setMessageKind("error");
       setMessage("Approval couldn’t be completed. Please try again.");
@@ -134,7 +169,7 @@ export default function Track() {
       setMessage(response.ok ? "Your notes are with our artist. We’ll let you know when the update is ready." : body.error);
       if (response.ok) {
         setNote("");
-        await lookup();
+        await lookup(undefined, true);
       }
     } catch {
       setMessageKind("error");
@@ -247,10 +282,10 @@ export default function Track() {
             {preview?.createdAt && <time dateTime={preview.createdAt}>{formatDate(preview.createdAt)}</time>}
           </div>
 
-          <div className="track-artwork-stage">
+          <div className="track-artwork-stage" ref={artworkStage}>
             {preview?.imageUrl ? (
               // Signed Supabase URLs are short-lived and cannot use a fixed Next Image host pattern.
-              <img className="track-preview" src={preview.imageUrl} alt={`${preview.label} for order ${order.order_number}`} />
+              <img className="track-preview" style={{ transform: `scale(${zoom})` }} src={preview.imageUrl} alt={`${preview.label} for order ${order.order_number}`} />
             ) : (
               <div className="track-empty-state">
                 <span aria-hidden="true">✦</span>
@@ -259,6 +294,13 @@ export default function Track() {
               </div>
             )}
           </div>
+
+          {preview?.imageUrl && <div className="track-image-controls" aria-label="Artwork view controls">
+            <button type="button" onClick={() => setZoom((value) => Math.min(2.5, value + .25))}>Zoom in</button>
+            <button type="button" onClick={() => setZoom((value) => Math.max(.5, value - .25))}>Zoom out</button>
+            <button type="button" onClick={() => setZoom(1)}>Reset</button>
+            <button type="button" onClick={() => artworkStage.current?.requestFullscreen?.()}>Full screen</button>
+          </div>}
 
           {order.previews.length > 1 && (
             <div className="track-version-picker">
@@ -285,11 +327,13 @@ export default function Track() {
         </section>
 
         <aside className="track-decision-panel" aria-label="Artwork approval">
+          {preview?.reviewDeadlineAt && !preview.reviewClosedAt && order.status === "preview_ready" && !order.approved_at && serverNow &&
+            <ReviewCountdown deadline={preview.reviewDeadlineAt} serverNow={serverNow} onExpired={() => lookup(undefined, true)} />}
           {order.approved_at ? (
             <div className="track-approved-state">
               <span className="track-approved-mark" aria-hidden="true">✓</span>
               <p className="track-overline">All set</p>
-              <h2>You approved this design</h2>
+              <h2>{order.approval_source === "automatic_72h" ? "Approved after 72 hours" : "You approved this design"}</h2>
               <p>Your artwork is locked and ready for the next stage. We’ll keep you updated as your order moves forward.</p>
               <div><span>Approved artwork</span><strong>{preview?.label}</strong></div>
             </div>
