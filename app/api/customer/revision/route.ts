@@ -9,7 +9,7 @@ import { normalizeEmail, normalizeOrderNumber } from "@/lib/workflow";
 const schema = z.object({ orderNumber: z.string().min(2).max(40), email: z.string().email().max(320), previewId: z.string().uuid(), message: z.string().trim().min(5).max(2000) });
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, "customer-mutation", 10, 10 * 60 * 1000);
+  const limited = await rateLimit(req, "customer-mutation", 10, 10 * 60 * 1000);
   if (limited) return limited;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Describe the requested changes in 5–2,000 characters." }, { status: 400 });
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const known = result.error.message;
     if (known.includes("revision_limit_reached")) return NextResponse.json({ error: "Your three free revision rounds have been used." }, { status: 409 });
     if (known.includes("open_revision_exists")) return NextResponse.json({ error: "You already have an open revision request." }, { status: 409 });
-    if (/order_locked|invalid_revision_state|preview_not_latest/.test(known)) return NextResponse.json({ error: "A revision cannot be requested for this preview." }, { status: 409 });
+    if (/order_locked|invalid_revision_state|preview_not_latest|review_window_closed|review_window_expired/.test(known)) return NextResponse.json({ error: "A revision cannot be requested for this preview." }, { status: 409 });
     console.error("Revision transaction failed", result.error.message);
     return NextResponse.json({ error: "Revision request could not be completed." }, { status: 500 });
   }

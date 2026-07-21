@@ -12,3 +12,10 @@ export function isAdminAuthorized(value: string | null) {
   const a = Buffer.from(value); const b = Buffer.from(expected);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+export function isCronAuthorized(value: string | null) {
+  const expected = process.env.CRON_SECRET;
+  if (!expected || !value?.startsWith("Bearer ")) return false;
+  const supplied = value.slice(7);
+  const a = Buffer.from(supplied); const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}

@@ -1,0 +1,78 @@
+:root {
+  --navy: #101d33;
+  --ink: #17243a;
+  --cream: #f7f2e8;
+  --paper: #fffdf8;
+  --sage: #efe5cb;
+  --sage-dark: #8a6b2e;
+  --terracotta: #c6a45d;
+  --terracotta-dark: #8a6828;
+  --gold: #c6a45d;
+  --line: #ded7c8;
+  --muted: #687083;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.track-countdown {
+  margin: 0 0 24px;
+  padding: 18px;
+  border: 1px solid var(--gold);
+  border-radius: 14px;
+  background: #fbf6e9;
+}
+
+.track-countdown > strong {
+  display: block;
+  margin: 4px 0 10px;
+  color: var(--navy);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.track-countdown > p:not(.track-overline), .track-countdown time {
+  display: block;
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.55;
+}
+
+.track-countdown.urgent { border-color: #b87528; background: #fff5df; }
+.track-countdown.critical { border-color: #a53f32; background: #fff0ed; }
+
+.track-image-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 4px 2px;
+}
+
+.track-image-controls button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  color: var(--navy);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: .72rem;
+  font-weight: 750;
+}
+
+.track-image-controls button:focus-visible { outline: 3px solid rgba(198, 164, 93, .4); outline-offset: 2px; }
+.track-preview { transition: transform .2s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .track-preview { transition: none; }
+}

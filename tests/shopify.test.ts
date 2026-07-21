@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { updateOrderMetafields } from "../lib/shopify";
+import { verifyShopifyWebhook } from "../lib/security";
+import crypto from "node:crypto";
 
 test("client credentials are exchanged once and the token is cached", async () => {
   const originalFetch = globalThis.fetch;
@@ -40,5 +42,18 @@ test("client credentials are exchanged once and the token is cached", async () =
     process.env.SHOPIFY_CLIENT_ID = originalEnv.clientId;
     process.env.SHOPIFY_CLIENT_SECRET = originalEnv.clientSecret;
     process.env.SHOPIFY_ADMIN_ACCESS_TOKEN = originalEnv.legacyToken;
+  }
+});
+
+test("Shopify webhook HMAC validates the exact raw body", () => {
+  const originalSecret = process.env.SHOPIFY_WEBHOOK_SECRET;
+  process.env.SHOPIFY_WEBHOOK_SECRET = "test-only-webhook-secret";
+  try {
+    const raw = JSON.stringify({ id: 123, name: "#1001" });
+    const hmac = crypto.createHmac("sha256", process.env.SHOPIFY_WEBHOOK_SECRET).update(raw, "utf8").digest("base64");
+    assert.equal(verifyShopifyWebhook(raw, hmac), true);
+    assert.equal(verifyShopifyWebhook(`${raw} `, hmac), false);
+  } finally {
+    process.env.SHOPIFY_WEBHOOK_SECRET = originalSecret;
   }
 });

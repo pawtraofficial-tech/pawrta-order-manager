@@ -9,7 +9,7 @@ import { normalizeEmail, normalizeOrderNumber } from "@/lib/workflow";
 const schema = z.object({ orderNumber: z.string().min(2).max(40), email: z.string().email().max(320), previewId: z.string().uuid() });
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, "customer-mutation", 10, 10 * 60 * 1000);
+  const limited = await rateLimit(req, "customer-mutation", 10, 10 * 60 * 1000);
   if (limited) return limited;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid approval request." }, { status: 400 });
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   const result = await db.rpc("approve_artwork", { p_order_id: order.id, p_preview_id: parsed.data.previewId });
   if (result.error) {
-    const conflict = /invalid_approval_state|open_revision_exists|preview_not_latest/.test(result.error.message);
+    const conflict = /invalid_approval_state|open_revision_exists|preview_not_latest|review_window_closed|review_window_expired/.test(result.error.message);
     return NextResponse.json({ error: conflict ? "Only the latest available preview can be approved." : "Approval could not be completed." }, { status: conflict ? 409 : 500 });
   }
   const workflow = result.data as { changed: boolean };

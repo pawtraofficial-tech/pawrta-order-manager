@@ -12,6 +12,7 @@ export async function GET() {
     NEXT_PUBLIC_SUPABASE_URL: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
     SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     PAWTRA_ADMIN_KEY: Boolean(process.env.PAWTRA_ADMIN_KEY),
+    CRON_SECRET: Boolean(process.env.CRON_SECRET),
     SHOPIFY_STORE_DOMAIN: Boolean(process.env.SHOPIFY_STORE_DOMAIN),
     SHOPIFY_WEBHOOK_SECRET: Boolean(process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_CLIENT_SECRET),
     SHOPIFY_ADMIN_AUTH: hasShopifyAdminAuth,
