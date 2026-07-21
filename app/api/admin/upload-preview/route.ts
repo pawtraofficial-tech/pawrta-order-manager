@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { isAdminRequest } from "@/lib/admin-auth";
 import { syncOrderState } from "@/lib/shopify";
-import { appUrl, escapeEmailHtml, sendEmail } from "@/lib/email";
+import { deliverReviewNotifications } from "@/lib/review-processing";
 import { hasValidImageSignature, MAX_PREVIEW_FILE_SIZE, PREVIEW_MIME_TYPES } from "@/lib/workflow";
 
 const ALLOWED = new Set<string>(PREVIEW_MIME_TYPES);
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: mapped.message }, { status: mapped.status });
     }
 
-    const workflow = result.data as { versionNumber: number; revised: boolean };
+    const workflow = result.data as { versionNumber: number; revised: boolean; reviewStartedAt: string; reviewDeadlineAt: string };
     const warnings: string[] = [];
     try {
       await syncOrderState(order.shopify_order_id, { status: "preview_ready", revisionCount: order.revision_count });
@@ -70,18 +70,15 @@ export async function POST(req: NextRequest) {
 
     let emailSent = false;
     try {
-      const email = await sendEmail({
-        to: order.customer_email,
-        subject: `${workflow.revised ? "Your revised Pawtra artwork" : "Your Pawtra artwork"} is ready — #${escapeEmailHtml(order.order_number)}`,
-        html: `<p>Hello ${escapeEmailHtml(order.customer_name || "there")},</p><p>Your ${workflow.revised ? "revised " : ""}artwork preview is ready to review.</p><p><a href="${appUrl("/track")}">Review and approve your artwork</a></p>`,
-      });
-      emailSent = email.sent;
-      if (!email.sent) warnings.push("email_not_configured");
+      const delivery = await deliverReviewNotifications(10);
+      emailSent = delivery.sent > 0;
+      if (delivery.failed || delivery.skipped) warnings.push("email_delivery_pending");
     } catch (error) {
       warnings.push("email_failed");
       console.error("Preview email failed", error);
     }
-    return NextResponse.json({ ok: true, versionNumber: workflow.versionNumber, revised: workflow.revised, emailSent, warnings });
+    return NextResponse.json({ ok: true, versionNumber: workflow.versionNumber, revised: workflow.revised,
+      reviewStartedAt: workflow.reviewStartedAt, reviewDeadlineAt: workflow.reviewDeadlineAt, emailSent, warnings });
   } catch (error) {
     console.error("Preview upload failed", error);
     if (uploadedPath) {

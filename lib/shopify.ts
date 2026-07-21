@@ -63,7 +63,7 @@ export async function updateOrderMetafields(
       userErrors { field message }
     }
   }`;
-  const response = await fetch(`https://${shop}/admin/api/2026-04/graphql.json`, {
+  const response = await fetch(`https://${shop}/admin/api/2026-07/graphql.json`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
     body: JSON.stringify({ query, variables: { metafields: values.map((v) => ({ ...v, ownerId })) } }),

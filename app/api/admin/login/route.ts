@@ -4,7 +4,7 @@ import { isAdminAuthorized } from "@/lib/security";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
-  const limited = rateLimit(req, "admin-login", 5, 15 * 60 * 1000);
+  const limited = await rateLimit(req, "admin-login", 5, 15 * 60 * 1000);
   if (limited) return limited;
   const body = await req.json().catch(() => ({}));
   if (!isAdminAuthorized(typeof body.key === "string" ? body.key : null)) {

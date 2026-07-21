@@ -9,6 +9,10 @@ import {
   normalizeEmail,
   normalizeOrderNumber,
   previewLabel,
+  REVIEW_WINDOW_MS,
+  reviewDeadline,
+  remainingReviewMs,
+  formatCountdown,
 } from "../lib/workflow";
 
 test("the initial preview is version 1 and three revisions end at version 4", () => {
@@ -41,4 +45,17 @@ test("preview MIME claims require matching file signatures", () => {
   assert.equal(hasValidImageSignature(Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), "image/png"), true);
   assert.equal(hasValidImageSignature(new TextEncoder().encode("RIFF0000WEBP"), "image/webp"), true);
   assert.equal(hasValidImageSignature(new TextEncoder().encode("not an image"), "image/png"), false);
+});
+
+test("review deadline is exactly 72 hours after database start time", () => {
+  const start = new Date("2026-07-21T09:00:00.000Z");
+  assert.equal(REVIEW_WINDOW_MS, 72 * 60 * 60 * 1000);
+  assert.equal(reviewDeadline(start).toISOString(), "2026-07-24T09:00:00.000Z");
+});
+
+test("countdown formatting uses days when helpful and never goes negative", () => {
+  assert.equal(formatCountdown(71 * 60 * 60_000 + 59 * 60_000 + 59_000), "2d 23h 59m 59s");
+  assert.equal(formatCountdown(5 * 60 * 60_000 + 2_000), "5h 0m 2s");
+  assert.equal(formatCountdown(-1), "0h 0m 0s");
+  assert.equal(remainingReviewMs("2026-07-21T10:00:00Z", "2026-07-21T11:00:00Z"), 0);
 });

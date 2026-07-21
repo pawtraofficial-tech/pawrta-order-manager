@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 type Entry = { count: number; resetAt: number };
 const buckets = new Map<string, Entry>();
@@ -9,7 +11,7 @@ export function clientAddress(req: NextRequest) {
     || "unknown";
 }
 
-export function rateLimit(req: NextRequest, scope: string, limit: number, windowMs: number) {
+function localRateLimit(req: NextRequest, scope: string, limit: number, windowMs: number) {
   const now = Date.now();
   const key = `${scope}:${clientAddress(req)}`;
   const current = buckets.get(key);
@@ -26,4 +28,26 @@ export function rateLimit(req: NextRequest, scope: string, limit: number, window
   }
   current.count += 1;
   return null;
+}
+
+export async function rateLimit(req: NextRequest, scope: string, limit: number, windowMs: number) {
+  const bucketKey = crypto.createHash("sha256").update(`${scope}:${clientAddress(req)}`).digest("hex");
+  try {
+    const result = await getSupabaseAdmin().rpc("check_rate_limit", {
+      p_scope: scope,
+      p_bucket_key: bucketKey,
+      p_limit: limit,
+      p_window_seconds: Math.ceil(windowMs / 1000),
+    });
+    if (result.error) throw result.error;
+    const state = result.data as { allowed: boolean; retryAfter: number };
+    if (state.allowed) return null;
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(state.retryAfter) } },
+    );
+  } catch (error) {
+    console.error("Shared rate limit unavailable; using instance fallback", error instanceof Error ? error.message : "unknown");
+    return localRateLimit(req, scope, limit, windowMs);
+  }
 }

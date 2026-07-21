@@ -11,6 +11,8 @@ create table if not exists public.orders (
   approved_preview_id uuid,
   approved_at timestamptz,
   production_ready boolean not null default false,
+  approval_source text check (approval_source is null or approval_source in ('manual','automatic_72h')),
+  last_external_warning text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -23,6 +25,11 @@ create table if not exists public.previews (
   version_number integer not null check (version_number between 1 and 4),
   storage_path text not null,
   label text not null,
+  review_started_at timestamptz,
+  review_deadline_at timestamptz,
+  review_closed_at timestamptz,
+  review_expired_at timestamptz,
+  review_sequence integer not null default 1,
   created_at timestamptz not null default now(),
   unique(order_id, version_number)
 );
@@ -49,10 +56,38 @@ create table if not exists public.audit_events (
 );
 create index if not exists audit_order_created_idx on public.audit_events(order_id, created_at desc);
 
+create table if not exists public.notification_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  preview_id uuid not null references public.previews(id) on delete cascade,
+  kind text not null,
+  status text not null default 'pending' check (status in ('pending','processing','sent','failed','cancelled')),
+  attempts integer not null default 0,
+  available_at timestamptz not null default now(),
+  claimed_at timestamptz,
+  sent_at timestamptz,
+  last_error_code text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  review_sequence integer not null default 1,
+  unique(preview_id, kind, review_sequence)
+);
+
+create table if not exists public.rate_limit_buckets (
+  scope text not null,
+  bucket_key text not null,
+  window_started_at timestamptz not null,
+  request_count integer not null,
+  updated_at timestamptz not null default now(),
+  primary key(scope, bucket_key)
+);
+
 alter table public.orders enable row level security;
 alter table public.previews enable row level security;
 alter table public.revision_requests enable row level security;
 alter table public.audit_events enable row level security;
+alter table public.notification_deliveries enable row level security;
+alter table public.rate_limit_buckets enable row level security;
 
 -- No public policies are intentionally created. The app accesses these tables only with the server-side service-role key.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)

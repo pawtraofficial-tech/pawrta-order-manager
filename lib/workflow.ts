@@ -13,6 +13,29 @@ export const MAX_FREE_REVISIONS = 3;
 export const MAX_PREVIEW_VERSION = MAX_FREE_REVISIONS + 1;
 export const MAX_PREVIEW_FILE_SIZE = 12 * 1024 * 1024;
 export const PREVIEW_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export const REVIEW_WINDOW_HOURS = 72;
+export const REVIEW_WINDOW_MS = REVIEW_WINDOW_HOURS * 60 * 60 * 1000;
+
+export function reviewDeadline(start: Date | string | number) {
+  const startedAt = new Date(start);
+  if (!Number.isFinite(startedAt.getTime())) throw new Error("Invalid review start time.");
+  return new Date(startedAt.getTime() + REVIEW_WINDOW_MS);
+}
+
+export function remainingReviewMs(deadline: Date | string | number, now: Date | string | number = Date.now()) {
+  return Math.max(0, new Date(deadline).getTime() - new Date(now).getTime());
+}
+
+export function formatCountdown(milliseconds: number) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return days > 0
+    ? `${days}d ${hours}h ${minutes}m ${seconds}s`
+    : `${hours}h ${minutes}m ${seconds}s`;
+}
 
 export function normalizeOrderNumber(value: string) {
   return value.trim().replace(/^#/, "");
